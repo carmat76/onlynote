@@ -1,5 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { ReactSketchCanvas } from "react-sketch-canvas";
+import { supabase } from "./supabaseClient";
+
 
 function App() {
   const canvasRef = useRef(null);
@@ -59,6 +61,16 @@ const canvasStyles = {
     link.download = "drawing.png";
     link.click();
   };
+const handleGoogleLogin = async () => {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+  });
+  if (error) console.error("Login failed:", error.message);
+};
+
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+};
 
   return (
   <div
@@ -72,6 +84,11 @@ const canvasStyles = {
     }}
   >
     <div style={{ height: "100%", paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>
+      <div style={{ padding: 10 }}>
+  <button onClick={handleGoogleLogin}>Sign in with Google</button>
+  <button onClick={handleLogout}>Sign out</button>
+</div>
+
       <ReactSketchCanvas
         ref={canvasRef}
         style={canvasStyles}
