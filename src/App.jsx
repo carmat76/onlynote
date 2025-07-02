@@ -28,12 +28,13 @@ function App() {
     }
   }, [strokes]);
 
-  const canvasStyles = {
-    border: "1px solid #000",
-    width: "100%",
-    height: `${canvasHeight}px`,
-    touchAction: "none",
-  };
+const canvasStyles = {
+  border: "1px solid #000",
+  width: "100vw", // ← changed from 100%
+  height: `${canvasHeight}px`,
+  touchAction: "none",
+};
+
 
   const handleSave = async () => {
     const paths = await canvasRef.current.exportPaths();
@@ -60,25 +61,35 @@ function App() {
   };
 
   return (
-    <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden", position: "relative" }}>
-      <div style={{ height: "100%", paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>
-        <ReactSketchCanvas
-          ref={canvasRef}
-          style={canvasStyles}
-          strokeWidth={4}
-          strokeColor="black"
-          canvasColor="white"
-          withTimestamp={false}
-          allowOnlyPointerType="all"
-          onStroke={() => {
-            canvasRef.current.exportPaths().then((paths) => {
-              localStorage.setItem("drawing", JSON.stringify(paths));
-            });
-          }}
-        />
-      </div>
+  <div
+    style={{
+      height: "100vh",
+      width: "100vw",
+      margin: 0,
+      padding: 0,
+      overflow: "hidden",
+      position: "relative",
+    }}
+  >
+    <div style={{ height: "100%", paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>
+      <ReactSketchCanvas
+        ref={canvasRef}
+        style={canvasStyles}
+        strokeWidth={4}
+        strokeColor="black"
+        canvasColor="white"
+        withTimestamp={false}
+        allowOnlyPointerType="all"
+        onStroke={() => {
+          canvasRef.current.exportPaths().then((paths) => {
+            localStorage.setItem("drawing", JSON.stringify(paths));
+          });
+        }}
+      />
+    </div>
 
-      <div style={{
+    <div
+      style={{
         position: "fixed",
         bottom: 0,
         left: 0,
@@ -89,15 +100,17 @@ function App() {
         justifyContent: "center",
         gap: 8,
         boxShadow: "0 -2px 5px rgba(0,0,0,0.1)",
-        zIndex: 1000
-      }}>
-        <button onClick={handleClear}>Clear</button>
-        <button onClick={handleUndo}>Undo</button>
-        <button onClick={handleSave}>Save</button>
-        <button onClick={handleSavePNG}>Save PNG</button>
-      </div>
+        zIndex: 1000,
+      }}
+    >
+      <button onClick={handleClear}>Clear</button>
+      <button onClick={handleUndo}>Undo</button>
+      <button onClick={handleSave}>Save</button>
+      <button onClick={handleSavePNG}>Save PNG</button>
     </div>
-  );
+  </div>
+);
+
 }
 
 export default App;
