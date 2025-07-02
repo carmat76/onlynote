@@ -3,7 +3,8 @@ import { ReactSketchCanvas } from "react-sketch-canvas";
 
 function App() {
   const canvasRef = useRef(null);
-  const [canvasHeight, setCanvasHeight] = useState(window.innerHeight - 180); // leave room for buttons
+  const [canvasHeight, setCanvasHeight] = useState(window.innerHeight - 180);
+  const [strokes, setStrokes] = useState([]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -12,6 +13,20 @@ function App() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("drawing");
+    if (saved) {
+      const paths = JSON.parse(saved);
+      setStrokes(paths);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (strokes.length && canvasRef.current) {
+      canvasRef.current.loadPaths(strokes);
+    }
+  }, [strokes]);
 
   const canvasStyles = {
     border: "1px solid #000",
@@ -29,30 +44,11 @@ function App() {
   const handleClear = () => {
     canvasRef.current.clearCanvas();
     localStorage.removeItem("drawing");
+    setStrokes([]);
   };
 
   const handleUndo = () => {
     canvasRef.current.undo();
-  };
-
-  const handleExportJSON = async () => {
-    const paths = await canvasRef.current.exportPaths();
-    const blob = new Blob([JSON.stringify(paths)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "drawing.json";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleLoadJSON = (e) => {
-    const fileReader = new FileReader();
-    fileReader.onload = () => {
-      const data = JSON.parse(fileReader.result);
-      canvasRef.current.loadPaths(data);
-    };
-    fileReader.readAsText(e.target.files[0]);
   };
 
   const handleSavePNG = async () => {
@@ -64,8 +60,8 @@ function App() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", margin: 0 }}>
-      <div style={{ flex: 1 }}>
+    <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden", position: "relative" }}>
+      <div style={{ height: "100%", paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>
         <ReactSketchCanvas
           ref={canvasRef}
           style={canvasStyles}
@@ -74,22 +70,30 @@ function App() {
           canvasColor="white"
           withTimestamp={false}
           allowOnlyPointerType="all"
+          onStroke={() => {
+            canvasRef.current.exportPaths().then((paths) => {
+              localStorage.setItem("drawing", JSON.stringify(paths));
+            });
+          }}
         />
       </div>
-      <div style={{ padding: 10, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>
+
+      <div style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "#fff",
+        padding: "10px env(safe-area-inset-left) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-right)",
+        display: "flex",
+        justifyContent: "center",
+        gap: 8,
+        boxShadow: "0 -2px 5px rgba(0,0,0,0.1)",
+        zIndex: 1000
+      }}>
         <button onClick={handleClear}>Clear</button>
         <button onClick={handleUndo}>Undo</button>
         <button onClick={handleSave}>Save</button>
-        <button onClick={handleExportJSON}>Export JSON</button>
-        <label>
-          <input
-            type="file"
-            accept="application/json"
-            onChange={handleLoadJSON}
-            style={{ display: "none" }}
-          />
-          <button>Load JSON</button>
-        </label>
         <button onClick={handleSavePNG}>Save PNG</button>
       </div>
     </div>
