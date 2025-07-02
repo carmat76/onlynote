@@ -1,86 +1,98 @@
-
+import { useRef, useEffect, useState } from "react";
 import { ReactSketchCanvas } from "react-sketch-canvas";
-import React, { useRef, useState, useEffect } from "react";
-
-const canvasStyle = {
-  border: "1px solid #000",
-  borderRadius: "4px",
-  width: "100%",
-  height: "90vh",
-};
-
 
 function App() {
-  const canvasRef = useRef(); // 👈 Move this ABOVE useEffect
-  const [savedJson, setSavedJson] = useState(null);
+  const canvasRef = useRef(null);
+  const [canvasHeight, setCanvasHeight] = useState(window.innerHeight - 180); // leave room for buttons
 
   useEffect(() => {
-    const saved = localStorage.getItem("onlynote_drawing");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setSavedJson(parsed);
-      if (canvasRef.current) {
-        canvasRef.current.loadPaths(parsed);
-      }
-    }
+    const handleResize = () => {
+      setCanvasHeight(window.innerHeight - 180);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const canvasStyles = {
+    border: "1px solid #000",
+    width: "100%",
+    height: `${canvasHeight}px`,
+    touchAction: "none",
+  };
+
+  const handleSave = async () => {
+    const paths = await canvasRef.current.exportPaths();
+    localStorage.setItem("drawing", JSON.stringify(paths));
+    alert("Drawing saved to localStorage");
+  };
 
   const handleClear = () => {
-    canvasRef.current.clearCanvas(); // 👈 Calls the clear method on the canvas
+    canvasRef.current.clearCanvas();
+    localStorage.removeItem("drawing");
   };
 
   const handleUndo = () => {
-    canvasRef.current.undo(); // 👈 Calls the undo method
+    canvasRef.current.undo();
   };
 
+  const handleExportJSON = async () => {
+    const paths = await canvasRef.current.exportPaths();
+    const blob = new Blob([JSON.stringify(paths)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "drawing.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
+  const handleLoadJSON = (e) => {
+    const fileReader = new FileReader();
+    fileReader.onload = () => {
+      const data = JSON.parse(fileReader.result);
+      canvasRef.current.loadPaths(data);
+    };
+    fileReader.readAsText(e.target.files[0]);
+  };
 
-const handleLoadJson = async () => {
-  if (savedJson) {
-    await canvasRef.current.loadPaths(savedJson);
-  }
-};
-
-const handleExportJson = async () => {
-  const json = await canvasRef.current.exportPaths();
-  console.log("Exported JSON:", json);
-  setSavedJson(json);
-  localStorage.setItem("onlynote_drawing", JSON.stringify(json)); // 👈 Save to localStorage
-};
-
-  const handleSave = () => {
-  if (!canvasRef.current) return;
-  const canvas = canvasRef.current.canvasContainer?.children[0];
-  if (!canvas) return;
-
-  const dataUrl = canvas.toDataURL('image/png');
-  const link = document.createElement('a');
-  link.href = dataUrl;
-  link.download = 'drawing.png';
-  link.click();
-};
+  const handleSavePNG = async () => {
+    const imageData = await canvasRef.current.exportImage("png");
+    const link = document.createElement("a");
+    link.href = imageData;
+    link.download = "drawing.png";
+    link.click();
+  };
 
   return (
-    <div style={{ padding: "1rem", backgroundColor: "#fff" }}>
-      <ReactSketchCanvas
-        ref={canvasRef} // 👈 Attach the ref to the canvas
-        style={canvasStyle}
-        strokeColor="black"
-        strokeWidth={3}
-      />
-
-<div style={{ marginTop: "1rem" }}>
-  <button onClick={handleClear}>Clear</button>
-  <button onClick={handleUndo} style={{ marginLeft: "1rem" }}>Undo</button>
-  <button onClick={handleSave} style={{ marginLeft: "1rem" }}>Save</button>
-  <button onClick={handleExportJson} style={{ marginLeft: "1rem" }}>Export JSON</button>
-  <button onClick={handleLoadJson} style={{ marginLeft: "1rem" }}>Load JSON</button>
-</div>
-
-
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", margin: 0 }}>
+      <div style={{ flex: 1 }}>
+        <ReactSketchCanvas
+          ref={canvasRef}
+          style={canvasStyles}
+          strokeWidth={4}
+          strokeColor="black"
+          canvasColor="white"
+          withTimestamp={false}
+          allowOnlyPointerType="all"
+        />
+      </div>
+      <div style={{ padding: 10, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>
+        <button onClick={handleClear}>Clear</button>
+        <button onClick={handleUndo}>Undo</button>
+        <button onClick={handleSave}>Save</button>
+        <button onClick={handleExportJSON}>Export JSON</button>
+        <label>
+          <input
+            type="file"
+            accept="application/json"
+            onChange={handleLoadJSON}
+            style={{ display: "none" }}
+          />
+          <button>Load JSON</button>
+        </label>
+        <button onClick={handleSavePNG}>Save PNG</button>
+      </div>
     </div>
-    
   );
 }
 
