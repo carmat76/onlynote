@@ -8,6 +8,7 @@ function App() {
   const [strokes, setStrokes] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState(null); // 'writer' or 'reader'
 
   // Auth setup
   useEffect(() => {
@@ -41,12 +42,11 @@ function App() {
     }
   }, []);
 
-  // Load from Supabase when user logs in
+  // Load from Supabase (own note or shared)
   useEffect(() => {
-    const loadCloudNote = async () => {
+    const loadNote = async () => {
       if (!user) return;
 
-      // 1. Try to get user's own note
       const { data: ownNote, error: ownError } = await supabase
         .from("notes")
         .select("content")
@@ -56,34 +56,34 @@ function App() {
       if (ownNote) {
         try {
           setStrokes(JSON.parse(ownNote.content));
+          setRole("writer");
         } catch (err) {
-          console.error("Failed to parse own note content", err);
+          console.error("Error parsing writer note:", err);
         }
         return;
       }
 
-      // 2. If no own note, check if any are shared with this user
-      const { data: sharedNotes, error: sharedError } = await supabase
+      const { data: sharedNote, error: sharedError } = await supabase
         .from("note_shares")
-        .select("notes(content)")
+        .select("role, notes(content)")
         .eq("shared_with", user.id)
         .maybeSingle();
 
-      if (sharedError || !sharedNotes || !sharedNotes.notes) {
-        console.warn("No note found (own or shared).", sharedError?.message);
-        return;
-      }
-
-      try {
-        setStrokes(JSON.parse(sharedNotes.notes.content));
-      } catch (err) {
-        console.error("Failed to parse shared note content", err);
+      if (sharedNote?.notes?.content) {
+        try {
+          setStrokes(JSON.parse(sharedNote.notes.content));
+          setRole(sharedNote.role);
+        } catch (err) {
+          console.error("Error parsing shared note:", err);
+        }
+      } else {
+        console.warn("No note available for this user.");
+        setRole(null);
       }
     };
 
-    loadCloudNote();
+    loadNote();
   }, [user]);
-
 
   // Apply strokes to canvas
   useEffect(() => {
@@ -108,34 +108,35 @@ function App() {
 
   // Save to Supabase
   const handleSaveToCloud = async () => {
-  if (!user) {
-    alert("You must be logged in to save.");
-    return;
-  }
+    if (!user) {
+      alert("You must be logged in to save.");
+      return;
+    }
+    if (role !== "writer") {
+      alert("Only the writer can save this note.");
+      return;
+    }
 
-  const paths = await canvasRef.current.exportPaths();
+    const paths = await canvasRef.current.exportPaths();
 
-  const { error } = await supabase
-    .from("notes")
-    .upsert(
-      {
-        user_id: user.id,
-        content: JSON.stringify(paths),
-        created_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "user_id", // <--- Add this!
-      }
-    );
+    const { error } = await supabase
+      .from("notes")
+      .upsert(
+        {
+          user_id: user.id,
+          content: JSON.stringify(paths),
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
 
-  if (error) {
-    console.error("Supabase error:", error);
-    alert("Failed to save to Supabase.");
-  } else {
-    alert("Drawing saved to Supabase!");
-  }
-};
-
+    if (error) {
+      console.error("Supabase error:", error);
+      alert("Failed to save to Supabase.");
+    } else {
+      alert("Drawing saved to Supabase!");
+    }
+  };
 
   const handleClear = () => {
     canvasRef.current.clearCanvas();
@@ -156,9 +157,7 @@ function App() {
   };
 
   const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-    });
+    const { error } = await supabase.auth.signInWithOAuth({ provider: "google" });
     if (error) console.error("Login failed:", error.message);
   };
 
@@ -167,16 +166,7 @@ function App() {
   };
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        width: "100vw",
-        margin: 0,
-        padding: 0,
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
+    <div style={{ height: "100vh", width: "100vw", margin: 0, padding: 0, overflow: "hidden", position: "relative" }}>
       {/* Top Bar */}
       <div
         style={{
@@ -194,10 +184,8 @@ function App() {
             <span>Loading...</span>
           ) : user ? (
             <>
-              <span>Welcome, {user.email}</span>
-              <button onClick={handleLogout} style={{ marginLeft: 10 }}>
-                Sign out
-              </button>
+              <span>Welcome, {user.email} {role && `(${role})`}</span>
+              <button onClick={handleLogout} style={{ marginLeft: 10 }}>Sign out</button>
             </>
           ) : (
             <button onClick={handleGoogleLogin}>Sign in with Google</button>
@@ -206,13 +194,7 @@ function App() {
       </div>
 
       {/* Canvas Area */}
-      <div
-        style={{
-          height: "100%",
-          paddingTop: 10,
-          paddingBottom: "calc(80px + env(safe-area-inset-bottom))",
-        }}
-      >
+      <div style={{ height: "100%", paddingTop: 10, paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>
         <ReactSketchCanvas
           ref={canvasRef}
           style={canvasStyles}
@@ -237,8 +219,7 @@ function App() {
           left: 0,
           right: 0,
           background: "#fff",
-          padding:
-            "10px env(safe-area-inset-left) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-right)",
+          padding: "10px env(safe-area-inset-left) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-right)",
           display: "flex",
           justifyContent: "center",
           gap: 8,
