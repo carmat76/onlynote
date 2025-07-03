@@ -90,69 +90,87 @@ function App() {
     await supabase.auth.signOut();
   };
 
-  return (
+return (
+  <div
+    style={{
+      height: "100vh",
+      width: "100vw",
+      margin: 0,
+      padding: 0,
+      overflow: "hidden",
+      position: "relative",
+    }}
+  >
+    {/* Top Bar */}
     <div
       style={{
-        height: "100vh",
-        width: "100vw",
-        margin: 0,
-        padding: 0,
-        overflow: "hidden",
-        position: "relative",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "10px 20px",
+        backgroundColor: "#fff",
+        boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+        zIndex: 1000,
       }}
     >
-      <div style={{ height: "100%", paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>
-        <ReactSketchCanvas
-          ref={canvasRef}
-          style={canvasStyles}
-          strokeWidth={4}
-          strokeColor="black"
-          canvasColor="white"
-          withTimestamp={false}
-          allowOnlyPointerType="all"
-          onStroke={() => {
-            canvasRef.current.exportPaths().then((paths) => {
-              localStorage.setItem("drawing", JSON.stringify(paths));
-            });
-          }}
-        />
-      </div>
-
-      <div style={{ textAlign: "center", marginTop: 10 }}>
+      <div>
         {loading ? (
-          <p>Loading...</p>
+          <span>Loading...</span>
         ) : user ? (
           <>
-            <p>Welcome, {user.email}</p>
-            <button onClick={handleLogout}>Sign out</button>
+            <span>Welcome, {user.email}</span>
+            <button onClick={handleLogout} style={{ marginLeft: 10 }}>
+              Sign out
+            </button>
           </>
         ) : (
           <button onClick={handleGoogleLogin}>Sign in with Google</button>
         )}
       </div>
-
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: "#fff",
-          padding: "10px env(safe-area-inset-left) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-right)",
-          display: "flex",
-          justifyContent: "center",
-          gap: 8,
-          boxShadow: "0 -2px 5px rgba(0,0,0,0.1)",
-          zIndex: 1000,
-        }}
-      >
-        <button onClick={handleClear}>Clear</button>
-        <button onClick={handleUndo}>Undo</button>
-        <button onClick={handleSave}>Save</button>
-        <button onClick={handleSavePNG}>Save PNG</button>
-      </div>
     </div>
-  );
+
+    {/* Canvas Area */}
+    <div style={{ height: "100%", paddingTop: 10, paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>
+      <ReactSketchCanvas
+        ref={canvasRef}
+        style={canvasStyles}
+        strokeWidth={4}
+        strokeColor="black"
+        canvasColor="white"
+        withTimestamp={false}
+        allowOnlyPointerType="all"
+        onStroke={() => {
+          canvasRef.current.exportPaths().then((paths) => {
+            localStorage.setItem("drawing", JSON.stringify(paths));
+          });
+        }}
+      />
+    </div>
+
+    {/* Bottom Tools */}
+    <div
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "#fff",
+        padding: "10px env(safe-area-inset-left) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-right)",
+        display: "flex",
+        justifyContent: "center",
+        gap: 8,
+        boxShadow: "0 -2px 5px rgba(0,0,0,0.1)",
+        zIndex: 1000,
+      }}
+    >
+      <button onClick={handleClear}>Clear</button>
+      <button onClick={handleUndo}>Undo</button>
+      <button onClick={handleSave}>Save</button>
+      <button onClick={handleSavePNG}>Save PNG</button>
+    </div>
+  </div>
+);
+
 }
 
 export default App;
