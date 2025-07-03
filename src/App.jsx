@@ -54,11 +54,31 @@ function App() {
     touchAction: "none",
   };
 
-  // Button handlers
-  const handleSave = async () => {
+  // Save to localStorage
+  const handleLocalSave = async () => {
     const paths = await canvasRef.current.exportPaths();
     localStorage.setItem("drawing", JSON.stringify(paths));
     alert("Drawing saved to localStorage");
+  };
+
+  // Save to Supabase
+  const handleSaveToSupabase = async () => {
+    if (!user) return alert("You must be signed in to save to the cloud.");
+    const paths = await canvasRef.current.exportPaths();
+
+    const { error } = await supabase.from("notes").insert([
+      {
+        user_id: user.id,
+        content: JSON.stringify(paths),
+      },
+    ]);
+
+    if (error) {
+      console.error("Supabase insert error:", error.message);
+      alert("Error saving to Supabase");
+    } else {
+      alert("Drawing saved to Supabase!");
+    }
   };
 
   const handleClear = () => {
@@ -90,87 +110,94 @@ function App() {
     await supabase.auth.signOut();
   };
 
-return (
-  <div
-    style={{
-      height: "100vh",
-      width: "100vw",
-      margin: 0,
-      padding: 0,
-      overflow: "hidden",
-      position: "relative",
-    }}
-  >
-    {/* Top Bar */}
+  return (
     <div
       style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "10px 20px",
-        backgroundColor: "#fff",
-        boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-        zIndex: 1000,
+        height: "100vh",
+        width: "100vw",
+        margin: 0,
+        padding: 0,
+        overflow: "hidden",
+        position: "relative",
       }}
     >
-      <div>
-        {loading ? (
-          <span>Loading...</span>
-        ) : user ? (
-          <>
-            <span>Welcome, {user.email}</span>
-            <button onClick={handleLogout} style={{ marginLeft: 10 }}>
-              Sign out
-            </button>
-          </>
-        ) : (
-          <button onClick={handleGoogleLogin}>Sign in with Google</button>
-        )}
+      {/* Top Bar */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "10px 20px",
+          backgroundColor: "#fff",
+          boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+          zIndex: 1000,
+        }}
+      >
+        <div>
+          {loading ? (
+            <span>Loading...</span>
+          ) : user ? (
+            <>
+              <span>Welcome, {user.email}</span>
+              <button onClick={handleLogout} style={{ marginLeft: 10 }}>
+                Sign out
+              </button>
+            </>
+          ) : (
+            <button onClick={handleGoogleLogin}>Sign in with Google</button>
+          )}
+        </div>
+      </div>
+
+      {/* Canvas Area */}
+      <div
+        style={{
+          height: "100%",
+          paddingTop: 10,
+          paddingBottom: "calc(80px + env(safe-area-inset-bottom))",
+        }}
+      >
+        <ReactSketchCanvas
+          ref={canvasRef}
+          style={canvasStyles}
+          strokeWidth={4}
+          strokeColor="black"
+          canvasColor="white"
+          withTimestamp={false}
+          allowOnlyPointerType="all"
+          onStroke={() => {
+            canvasRef.current.exportPaths().then((paths) => {
+              localStorage.setItem("drawing", JSON.stringify(paths));
+            });
+          }}
+        />
+      </div>
+
+      {/* Bottom Tools */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: "#fff",
+          padding:
+            "10px env(safe-area-inset-left) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-right)",
+          display: "flex",
+          justifyContent: "center",
+          gap: 8,
+          boxShadow: "0 -2px 5px rgba(0,0,0,0.1)",
+          zIndex: 1000,
+        }}
+      >
+        <button onClick={handleClear}>Clear</button>
+        <button onClick={handleUndo}>Undo</button>
+        <button onClick={handleLocalSave}>Save Local</button>
+        <button onClick={handleSaveToSupabase}>Save to Cloud</button>
+        <button onClick={handleSavePNG}>Save PNG</button>
       </div>
     </div>
-
-    {/* Canvas Area */}
-    <div style={{ height: "100%", paddingTop: 10, paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>
-      <ReactSketchCanvas
-        ref={canvasRef}
-        style={canvasStyles}
-        strokeWidth={4}
-        strokeColor="black"
-        canvasColor="white"
-        withTimestamp={false}
-        allowOnlyPointerType="all"
-        onStroke={() => {
-          canvasRef.current.exportPaths().then((paths) => {
-            localStorage.setItem("drawing", JSON.stringify(paths));
-          });
-        }}
-      />
-    </div>
-
-    {/* Bottom Tools */}
-    <div
-      style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: "#fff",
-        padding: "10px env(safe-area-inset-left) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-right)",
-        display: "flex",
-        justifyContent: "center",
-        gap: 8,
-        boxShadow: "0 -2px 5px rgba(0,0,0,0.1)",
-        zIndex: 1000,
-      }}
-    >
-      <button onClick={handleClear}>Clear</button>
-      <button onClick={handleUndo}>Undo</button>
-      <button onClick={handleSave}>Save</button>
-      <button onClick={handleSavePNG}>Save PNG</button>
-    </div>
-  </div>
-);
-
+  );
 }
 
 export default App;
