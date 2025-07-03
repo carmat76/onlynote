@@ -46,27 +46,44 @@ function App() {
     const loadCloudNote = async () => {
       if (!user) return;
 
-      const { data, error } = await supabase
+      // 1. Try to get user's own note
+      const { data: ownNote, error: ownError } = await supabase
         .from("notes")
         .select("content")
         .eq("user_id", user.id)
         .single();
 
-      if (error) {
-        console.warn("No cloud note found or error loading:", error.message);
+      if (ownNote) {
+        try {
+          setStrokes(JSON.parse(ownNote.content));
+        } catch (err) {
+          console.error("Failed to parse own note content", err);
+        }
+        return;
+      }
+
+      // 2. If no own note, check if any are shared with this user
+      const { data: sharedNotes, error: sharedError } = await supabase
+        .from("note_shares")
+        .select("notes(content)")
+        .eq("shared_with", user.id)
+        .maybeSingle();
+
+      if (sharedError || !sharedNotes || !sharedNotes.notes) {
+        console.warn("No note found (own or shared).", sharedError?.message);
         return;
       }
 
       try {
-        const paths = JSON.parse(data.content);
-        setStrokes(paths);
+        setStrokes(JSON.parse(sharedNotes.notes.content));
       } catch (err) {
-        console.error("Failed to parse cloud content", err);
+        console.error("Failed to parse shared note content", err);
       }
     };
 
     loadCloudNote();
   }, [user]);
+
 
   // Apply strokes to canvas
   useEffect(() => {
