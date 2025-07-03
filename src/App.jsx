@@ -33,7 +33,7 @@ function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Load saved drawing
+  // Load saved drawing from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("drawing");
     if (saved) {
@@ -41,6 +41,34 @@ function App() {
     }
   }, []);
 
+  // Load from Supabase when user logs in
+  useEffect(() => {
+    const loadCloudNote = async () => {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("notes")
+        .select("content")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) {
+        console.warn("No cloud note found or error loading:", error.message);
+        return;
+      }
+
+      try {
+        const paths = JSON.parse(data.content);
+        setStrokes(paths);
+      } catch (err) {
+        console.error("Failed to parse cloud content", err);
+      }
+    };
+
+    loadCloudNote();
+  }, [user]);
+
+  // Apply strokes to canvas
   useEffect(() => {
     if (strokes.length && canvasRef.current) {
       canvasRef.current.loadPaths(strokes);
@@ -62,20 +90,23 @@ function App() {
   };
 
   // Save to Supabase
-  const handleSaveToSupabase = async () => {
-    if (!user) return alert("You must be signed in to save to the cloud.");
+  const handleSaveToCloud = async () => {
+    if (!user) {
+      alert("You must be logged in to save.");
+      return;
+    }
+
     const paths = await canvasRef.current.exportPaths();
 
-    const { error } = await supabase.from("notes").insert([
-      {
-        user_id: user.id,
-        content: JSON.stringify(paths),
-      },
-    ]);
+    const { error } = await supabase.from("notes").upsert({
+      user_id: user.id,
+      content: JSON.stringify(paths),
+      created_at: new Date().toISOString(),
+    });
 
     if (error) {
-      console.error("Supabase insert error:", error.message);
-      alert("Error saving to Supabase");
+      console.error("Save failed:", error.message);
+      alert("Failed to save to Supabase.");
     } else {
       alert("Drawing saved to Supabase!");
     }
@@ -193,7 +224,7 @@ function App() {
         <button onClick={handleClear}>Clear</button>
         <button onClick={handleUndo}>Undo</button>
         <button onClick={handleLocalSave}>Save Local</button>
-        <button onClick={handleSaveToSupabase}>Save to Cloud</button>
+        <button onClick={handleSaveToCloud}>Save to Cloud</button>
         <button onClick={handleSavePNG}>Save PNG</button>
       </div>
     </div>
