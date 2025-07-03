@@ -91,26 +91,34 @@ function App() {
 
   // Save to Supabase
   const handleSaveToCloud = async () => {
-    if (!user) {
-      alert("You must be logged in to save.");
-      return;
-    }
+  if (!user) {
+    alert("You must be logged in to save.");
+    return;
+  }
 
-    const paths = await canvasRef.current.exportPaths();
+  const paths = await canvasRef.current.exportPaths();
 
-    const { error } = await supabase.from("notes").upsert({
-      user_id: user.id,
-      content: JSON.stringify(paths),
-      created_at: new Date().toISOString(),
-    });
+  const { error } = await supabase
+    .from("notes")
+    .upsert(
+      {
+        user_id: user.id,
+        content: JSON.stringify(paths),
+        created_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "user_id", // <--- Add this!
+      }
+    );
 
-    if (error) {
-      console.error("Save failed:", error.message);
-      alert("Failed to save to Supabase.");
-    } else {
-      alert("Drawing saved to Supabase!");
-    }
-  };
+  if (error) {
+    console.error("Supabase error:", error);
+    alert("Failed to save to Supabase.");
+  } else {
+    alert("Drawing saved to Supabase!");
+  }
+};
+
 
   const handleClear = () => {
     canvasRef.current.clearCanvas();
