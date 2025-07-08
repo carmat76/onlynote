@@ -10,6 +10,60 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState(null); // 'writer' or 'reader'
 
+  const [shareEmail, setShareEmail] = useState("");
+const [shareStatus, setShareStatus] = useState("");
+
+// Send note to another user
+const handleShare = async (role = "reader") => {
+  setShareStatus("Sharing...");
+
+  if (!user || !shareEmail) {
+    setShareStatus("Missing user or email");
+    return;
+  }
+
+  // 1. Look up the target user
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", shareEmail.toLowerCase())
+    .single();
+
+  if (profileError || !profile) {
+    setShareStatus("User not found");
+    return;
+  }
+
+  const targetId = profile.id;
+
+  // 2. Get current user's note ID
+  const { data: noteData, error: noteError } = await supabase
+    .from("notes")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (noteError || !noteData) {
+    setShareStatus("No note found to share");
+    return;
+  }
+
+  const { error: shareError } = await supabase
+    .from("note_shares")
+    .upsert({
+      note_id: noteData.id,
+      shared_with: targetId,
+      role,
+    });
+
+  if (shareError) {
+    console.error(shareError);
+    setShareStatus("Failed to share");
+  } else {
+    setShareStatus(`Shared as ${role}`);
+  }
+};
+
   // Auth setup
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -210,6 +264,19 @@ function App() {
           }}
         />
       </div>
+<div style={{ padding: 20 }}>
+  <h4>Share Note</h4>
+  <input
+    type="email"
+    placeholder="Enter email to share with"
+    value={shareEmail}
+    onChange={(e) => setShareEmail(e.target.value)}
+    style={{ padding: "8px", width: "250px", marginRight: "10px" }}
+  />
+  <button onClick={() => handleShare("reader")}>Share as Reader</button>
+  <button onClick={() => handleShare("writer")}>Share as Writer</button>
+  <div>{shareStatus}</div>
+</div>
 
       {/* Bottom Tools */}
       <div
@@ -234,6 +301,7 @@ function App() {
         <button onClick={handleSavePNG}>Save PNG</button>
       </div>
     </div>
+    
   );
 }
 
